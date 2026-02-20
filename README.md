@@ -2,7 +2,7 @@
 
 A full-screen split-flap countdown display designed for a 1920×1080 TV or monitor. Shows countdowns to custom events alongside auto-generated US holidays, styled with the SplitFlapTV font and animated with [PQINA Tick](https://pqina.nl/).
 
-![FlipClock preview](FlipClock.jpg)
+![FlipClock preview](FlipClock.gif)
 
 ## Features
 
