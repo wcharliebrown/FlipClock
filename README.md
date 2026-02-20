@@ -2,7 +2,7 @@
 
 A full-screen split-flap countdown display designed for a 1920×1080 TV or monitor. Shows countdowns to custom events alongside auto-generated US holidays, styled with the SplitFlapTV font and animated with [PQINA Tick](https://pqina.nl/).
 
-![FlipClock preview](FlipClock.gif)
+![FlipClock preview](FlipClock.jpg)
 
 ## Features
 
@@ -67,6 +67,64 @@ password=yourpassword&events[0][label]=...&events[0][targetDate]=...&events[0][p
 ```
 
 On success it redirects back to `FlipClock.html`.
+
+## Wall-mounted Raspberry Pi display
+
+FlipClock works great as a always-on wall display using a Raspberry Pi and a portable USB-C monitor.
+
+### Hardware
+
+- **Raspberry Pi 4 or 5** — plenty of power for a full 1080p browser in kiosk mode
+- **Portable 1080p monitor** — any USB-C display with a VESA mount (e.g. Lepow, Arzopa, GeChic). Powers directly from the Pi's USB-C port on many models, keeping cable clutter to a minimum
+- **VESA wall mount** — a low-profile tilting mount lets you hang the monitor flat against the wall
+- **Short USB-C cable** — route behind the monitor to the Pi, which can be mounted directly to the back of the monitor using the VESA holes and a Pi case with a VESA adapter plate
+
+### Software setup on the Pi
+
+1. **Install Raspberry Pi OS Lite** (64-bit) and enable SSH.
+
+2. **Install a minimal browser stack:**
+   ```bash
+   sudo apt update && sudo apt install -y chromium-browser xorg openbox unclutter
+   ```
+
+3. **Install PHP + Apache** (or use Docker — see above):
+   ```bash
+   sudo apt install -y apache2 php libapache2-mod-php
+   sudo cp -r /path/to/FlipClock /var/www/html/flipclock
+   ```
+   Set up `~/.env` for the `www-data` user as described in the [Running without Docker](#running-without-docker) section.
+
+4. **Auto-start Chromium in kiosk mode.** Create `/etc/xdg/openbox/autostart`:
+   ```bash
+   # Disable screen blanking
+   xset s off
+   xset -dpms
+   xset s noblank
+
+   # Hide the cursor after 1 second of inactivity
+   unclutter -idle 1 &
+
+   # Launch Chromium in kiosk mode
+   chromium-browser --kiosk --noerrdialogs --disable-infobars \
+     --disable-session-crashed-bubble \
+     http://localhost/flipclock/FlipClock.html &
+   ```
+
+5. **Auto-start X on login.** Add to `~/.bash_profile`:
+   ```bash
+   [[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx
+   ```
+
+6. **Enable auto-login** for your user via `raspi-config` → System Options → Boot / Auto Login → Console Autologin.
+
+Reboot and the display comes up automatically, refreshes itself every hour, and survives power cuts cleanly.
+
+### Tips
+
+- Set the monitor's physical rotation in `/boot/firmware/config.txt` with `display_rotate=1` (90°) or `display_rotate=3` (270°) if you hang it in portrait orientation.
+- Use a smart plug on a timer or home-automation schedule to cut power at night and restore it in the morning — the Pi boots straight back into the display.
+- If the Pi is mounted behind the monitor, a right-angle USB-C adapter keeps the cable tidy.
 
 ## File overview
 
