@@ -1,0 +1,38 @@
+[
+    {
+        "label": "Charlie Birthday",
+        "targetDate": "2027-01-01T00:00:00-05:00",
+        "pinned": false,
+        "repeats": true
+    },
+    {
+        "label": "Hannah Birthday",
+        "targetDate": "2027-02-02T00:00:00-05:00",
+        "pinned": false,
+        "repeats": true
+    },
+    {
+        "label": "Nevaeh Birthday",
+        "targetDate": "2026-03-03T00:00:00-05:00",
+        "pinned": false,
+        "repeats": true
+    },
+    {
+        "label": "Nora Birthday",
+        "targetDate": "2026-04-04T00:00:00-05:00",
+        "pinned": false,
+        "repeats": true
+    },
+    {
+        "label": "Maggie Birthday",
+        "targetDate": "2026-05-05T00:00:00-05:00",
+        "pinned": false,
+        "repeats": true
+    },
+    {
+        "label": "Grandpa Retire",
+        "targetDate": "2029-01-01T01:00:00-05:00",
+        "pinned": true,
+        "repeats": false
+    }
+]

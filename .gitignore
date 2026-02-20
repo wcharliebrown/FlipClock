@@ -1,0 +1,8 @@
+# Actual env file — never commit this
+.env
+
+# macOS metadata
+.DS_Store
+
+# Generated events file written by FlipClock.php
+FlipClock10Events.json

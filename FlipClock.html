@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <meta http-equiv="Refresh" content="3600;url=FlipClock.html">
+    <title>Event Countdown Display</title>
+    <link rel="stylesheet" href="flip.min.css" />
+    <style>
+        @font-face {
+            font-family: 'SplitFlapTVBlackLine';
+            src: url('fonts/SplitFlapTVBlackLine-Regular.ttf') format('truetype'),
+                 url('fonts/SplitFlapTVBlackLine-Regular.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SplitFlapTVBlackLine', monospace;
+            background-color: #000000;
+            color: #ffffff;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            --base-font-size: 49px;
+            --base-line-height: 1.4;
+            font-size: var(--base-font-size);
+            line-height: var(--base-line-height);
+        }
+
+        .container {
+            width: 100%;
+            height: 100%;
+            padding: 20px 40px;
+            overflow-y: auto;
+        }
+
+        .countdown-line {
+            padding: calc(var(--base-font-size) * 0.44) 0;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+
+        .countdown-line:hover {
+            background-color: #111;
+        }
+
+        .event-info {
+            font-weight: normal;
+            color: #ffffff;
+            margin-right: 20px;
+            min-width: 600px;
+            font-family: 'SplitFlapTVBlackLine', monospace;
+        }
+
+        .timer {
+            font-weight: bold;
+            color: #00ff00;
+            font-family: 'SplitFlapTVBlackLine', monospace;
+            min-width: 150px;
+            text-align: right;
+        }
+
+        .scroll-container {
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        /* Custom scrollbar */
+        .scroll-container::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .scroll-container::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .scroll-container::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 5px;
+        }
+
+        .scroll-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Compact version for maximum items */
+        .compact .countdown-line {
+            padding: 4px 0;
+            font-size: 16px;
+            border-bottom: 1px solid #222;
+        }
+
+        .compact .event-info {
+            min-width: 500px;
+        }
+
+        .compact .timer {
+            min-width: 130px;
+        }
+
+        /* FlipClock styling */
+        .tick {
+            font-size: var(--base-font-size);
+            font-family: 'SplitFlapTVBlackLine', monospace;
+        }
+
+        .tick-flip {
+            font-size: var(--base-font-size);
+            font-weight: bold;
+            color: #00ff00;
+        }
+
+        .tick-flip-panel {
+            font-family: 'SplitFlapTVBlackLine', monospace;
+        }
+        .tick-credits {
+            display: none;
+        }
+
+        .arrived-text {
+            display: none;
+            font-size: var(--base-font-size);
+            font-weight: bold;
+            color: #ff0000;
+            font-family: 'SplitFlapTVBlackLine', monospace;
+            text-align: right;
+        }
+
+        .timer.arrived .tick {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+
+        .timer.arrived .arrived-text {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+        
+        .timer {
+            position: relative;
+        }
+        
+        .timer .arrived-text {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            background-color: #000000;
+            padding: 0 10px;
+        }
+        
+        .timer .tick {
+            position: relative;
+            z-index: 1;
+        }
+
+        .pqina-credit {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #666;
+            font-family: sans-serif, monospace;
+            font-weight: normal;
+            z-index: 1000;
+        }
+
+        .pqina-credit a {
+            color: #666;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .pqina-credit a:hover {
+            color: #00ff00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="scroll-container">
+            <!-- Countdown lines will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <div class="pqina-credit">
+        Powered by <a href="https://pqina.nl/?ref=credits" target="_blank">PQINA</a>
+    </div>
+
+    <script>
+        // Event data configuration - loaded from external JSON file
+        let events = [];
+
+        // Generate major holidays dynamically
+        function generateMajorHolidays() {
+            const holidays = [];
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const nextYear = currentYear + 1;
+            
+            // Helper function to format date with appropriate timezone
+            function formatDateWithTimezone(date, useEDT = false) {
+                const offset = useEDT ? '-04:00' : '-05:00';
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}T00:00:00${offset}`;
+            }
+            
+            // Helper function to get Thanksgiving (4th Thursday of November)
+            function getThanksgiving(year) {
+                const nov1 = new Date(year, 10, 1); // November 1st
+                const dayOfWeek = nov1.getDay(); // 0 = Sunday, 4 = Thursday
+                const daysToAdd = dayOfWeek <= 4 ? (4 - dayOfWeek) + 21 : (4 - dayOfWeek) + 28;
+                return new Date(year, 10, 1 + daysToAdd);
+            }
+            
+            // Helper function to get Easter (using simplified calculation)
+            function getEaster(year) {
+                // Simplified Easter calculation (works for most years)
+                const a = year % 19;
+                const b = Math.floor(year / 100);
+                const c = year % 100;
+                const d = Math.floor(b / 4);
+                const e = b % 4;
+                const f = Math.floor((b + 8) / 25);
+                const g = Math.floor((b - f + 1) / 3);
+                const h = (19 * a + b - d - g + 15) % 30;
+                const i = Math.floor(c / 4);
+                const k = c % 4;
+                const l = (32 + 2 * e + 2 * i - h - k) % 7;
+                const m = Math.floor((a + 11 * h + 22 * l) / 451);
+                const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+                const day = ((h + l - 7 * m + 114) % 31) + 1;
+                return new Date(year, month, day);
+            }
+            
+            // Generate holidays for current and next year
+            [currentYear, nextYear].forEach(year => {
+                // New Year's Day (EST)
+                holidays.push({
+                    label: "New Year's Day",
+                    targetDate: formatDateWithTimezone(new Date(year, 0, 1), false),
+                    pinned: false,
+                    repeats: true
+                });
+                
+                // Easter (usually EDT)
+                const easter = getEaster(year);
+                holidays.push({
+                    label: "Easter",
+                    targetDate: formatDateWithTimezone(easter, true),
+                    pinned: false,
+                    repeats: true
+                });
+                
+                // Independence Day (EDT)
+                holidays.push({
+                    label: "4th of July",
+                    targetDate: formatDateWithTimezone(new Date(year, 6, 4), true),
+                    pinned: false,
+                    repeats: true
+                });
+                
+                // Thanksgiving (EST)
+                const thanksgiving = getThanksgiving(year);
+                holidays.push({
+                    label: "Thanksgiving",
+                    targetDate: formatDateWithTimezone(thanksgiving, false),
+                    pinned: false,
+                    repeats: true
+                });
+                
+                // Christmas (EST)
+                holidays.push({
+                    label: "Christmas",
+                    targetDate: formatDateWithTimezone(new Date(year, 11, 25), false),
+                    pinned: false,
+                    repeats: true
+                });
+            });
+            
+            // Filter to only include future holidays
+            return holidays.filter(holiday => {
+                const holidayDate = new Date(holiday.targetDate);
+                return holidayDate > now;
+            });
+        }
+
+        // Load events from JSON file
+        async function loadEvents() {
+            try {
+                console.log('loadEvents: Starting to load events...');
+                const response = await fetch('FlipClockEvents.json');
+                const jsonEvents = await response.json();
+                console.log('loadEvents: Events loaded from JSON:', jsonEvents.length, 'events');
+                
+                // Generate major holidays dynamically
+                const generatedHolidays = generateMajorHolidays();
+                console.log('loadEvents: Generated holidays:', generatedHolidays.length, 'events');
+                
+                // Merge JSON events with generated holidays
+                // Remove any holidays from JSON that are also generated (to avoid duplicates)
+                const holidayLabels = new Set(generatedHolidays.map(h => h.label));
+                const filteredJsonEvents = jsonEvents.filter(event => !holidayLabels.has(event.label));
+                
+                events = [...filteredJsonEvents, ...generatedHolidays];
+                console.log('loadEvents: Total events after merge:', events.length, 'events');
+                
+                // Check for repeating events that are more than 24 hours old and find the next occurrence
+                const now = new Date();
+                events.forEach((event) => {
+                    if (event.repeats === true) {
+                        console.log('loadEvents: Repeating event:', event.label);
+                        const targetDate = new Date(event.targetDate);
+                        const hoursDiff = (targetDate.getTime() - now.getTime()) / (1000 * 60 * 60); // Difference in hours using unix timestamps
+                        console.log('loadEvents: now: ' + now + ' targetDate: ' + targetDate + ' Hours difference for repeating event:', event.label, 'Hours difference:', hoursDiff);
+                        if (hoursDiff < -24) {
+                            // Find the year that makes the target date positive but less than 365 days in the future
+                            let testYear = targetDate.getFullYear();
+                            let foundYear = null;
+                            
+                            // Try years starting from the original year, incrementing until we find one that works
+                            for (let yearOffset = 0; yearOffset < 10; yearOffset++) {
+                                const testDate = new Date(event.targetDate);
+                                testDate.setFullYear(testYear + yearOffset);
+                                
+                                const daysDiff = (testDate - now) / (1000 * 60 * 60 * 24); // Difference in days
+                                
+                                // Check if date is in the future (positive) and less than 365 days away
+                                if (daysDiff > 0 && daysDiff < 365) {
+                                    foundYear = testYear + yearOffset;
+                                    break;
+                                }
+                            }
+                            
+                            // If we found a valid year, update the date
+                            if (foundYear !== null) {
+                                const dateStr = event.targetDate;
+                                // Replace the year in the date string (format: YYYY-MM-DD...)
+                                event.targetDate = dateStr.replace(/^(\d{4})/, foundYear.toString());
+                                console.log('\nloadEvents: Updated year for repeating event:', event.label, 'New date:', event.targetDate,'\n');
+                            }
+                        }
+                    }
+                });
+                
+                // Sort events: non-pinned first (by date ascending), then pinned (by date ascending)
+                events.sort((a, b) => {
+                    const aPinned = a.pinned || false;
+                    const bPinned = b.pinned || false;
+                    
+                    // If one is pinned and the other isn't, pinned goes last
+                    if (aPinned && !bPinned) return -1;
+                    if (!aPinned && bPinned) return 1;
+                    
+                    // Both have same pinned status, sort by date (ascending - closest dates first)
+                    return new Date(a.targetDate) - new Date(b.targetDate);
+                });
+
+                // Limit display to 9 items max
+                const displayEvents = events.slice(0, 9);
+                console.log('loadEvents: Display events:', displayEvents.length, 'events');
+
+                const scrollContainer = document.querySelector('.scroll-container');
+                console.log('loadEvents: Scroll container found:', scrollContainer !== null);
+                const tickInstances = [];
+
+                // Check if Tick is available
+                console.log('loadEvents: Tick available?', typeof Tick !== 'undefined');
+                if (typeof Tick === 'undefined') {
+                    console.error('loadEvents: Tick library not loaded yet!');
+                }
+
+                // Initialize countdown lines
+                displayEvents.forEach((event, index) => {
+                    const line = document.createElement('div');
+                    line.className = 'countdown-line';
+                    
+                    const eventInfo = document.createElement('span');
+                    eventInfo.className = 'event-info';
+                    eventInfo.textContent = event.label;
+                    
+                    const timerContainer = document.createElement('div');
+                    timerContainer.className = 'timer';
+                    timerContainer.id = `timer-${index}`;
+                    timerContainer.dataset.targetDate = event.targetDate;
+                    
+                    // Create the Tick structure
+                    const tickWrapper = document.createElement('div');
+                    tickWrapper.className = 'tick';
+                    tickWrapper.dataset.didInit = `handleTimer${index}Init`;
+                    
+                    const tickInner = document.createElement('div');
+                    tickInner.dataset.repeat = 'true';
+                    tickInner.dataset.layout = 'horizontal center fit';
+                    tickInner.dataset.transform = 'preset(d, h, m, s) -> delay';
+                    
+                    // Days section
+                    const daysGroup = document.createElement('div');
+                    daysGroup.className = 'tick-group';
+                    const daysValue = document.createElement('div');
+                    daysValue.dataset.key = 'value';
+                    daysValue.dataset.repeat = 'true';
+                    daysValue.dataset.transform = 'pad(0000) -> split -> delay';
+                    const daysFlip = document.createElement('span');
+                    daysFlip.dataset.view = 'flip';
+                    daysValue.appendChild(daysFlip);
+                    daysGroup.appendChild(daysValue);
+                    
+                    // Hours section
+                    const hoursGroup = document.createElement('div');
+                    hoursGroup.className = 'tick-group';
+                    const hoursValue = document.createElement('div');
+                    hoursValue.dataset.key = 'value';
+                    hoursValue.dataset.repeat = 'true';
+                    hoursValue.dataset.transform = 'pad(00) -> split -> delay';
+                    const hoursFlip = document.createElement('span');
+                    hoursFlip.dataset.view = 'flip';
+                    hoursValue.appendChild(hoursFlip);
+                    hoursGroup.appendChild(hoursValue);
+                    
+                    // Minutes section
+                    const minutesGroup = document.createElement('div');
+                    minutesGroup.className = 'tick-group';
+                    const minutesValue = document.createElement('div');
+                    minutesValue.dataset.key = 'value';
+                    minutesValue.dataset.repeat = 'true';
+                    minutesValue.dataset.transform = 'pad(00) -> split -> delay';
+                    const minutesFlip = document.createElement('span');
+                    minutesFlip.dataset.view = 'flip';
+                    minutesValue.appendChild(minutesFlip);
+                    minutesGroup.appendChild(minutesValue);
+                    
+                    // Seconds section
+                    const secondsGroup = document.createElement('div');
+                    secondsGroup.className = 'tick-group';
+                    const secondsValue = document.createElement('div');
+                    secondsValue.dataset.key = 'value';
+                    secondsValue.dataset.repeat = 'true';
+                    secondsValue.dataset.transform = 'pad(00) -> split -> delay';
+                    const secondsFlip = document.createElement('span');
+                    secondsFlip.dataset.view = 'flip';
+                    secondsValue.appendChild(secondsFlip);
+                    secondsGroup.appendChild(secondsValue);
+                    
+                    tickInner.appendChild(daysGroup);
+                    tickInner.appendChild(hoursGroup);
+                    tickInner.appendChild(minutesGroup);
+                    tickInner.appendChild(secondsGroup);
+                    tickWrapper.appendChild(tickInner);
+                    timerContainer.appendChild(tickWrapper);
+                    
+                    // Add "ARRIVED" text element
+                    const arrivedText = document.createElement('div');
+                    arrivedText.className = 'arrived-text';
+                    arrivedText.textContent = 'ARRIVED';
+                    timerContainer.appendChild(arrivedText);
+                    
+                    line.appendChild(eventInfo);
+                    line.appendChild(timerContainer);
+                    scrollContainer.appendChild(line);
+                    console.log('loadEvents: Created countdown line for:', event.label, 'at index', index);
+                });
+                console.log('loadEvents: All countdown lines created');
+
+                // Calculate and apply responsive font sizing
+                function applyResponsiveSizing() {
+                    const numItems = displayEvents.length;
+                    const availableHeight = 1080 - 80; // Total height minus padding (40px top + 40px bottom)
+                    const baseFontSize = 45;
+                    const baseLineHeight = 1.4;
+                    const basePadding = 8; // 8px base padding
+                    const borderHeight = 1; // border line
+                    
+                    // Calculate how many items would fit with base sizing
+                    const baseTotalLineHeight = (baseFontSize * baseLineHeight) + (basePadding * 2) + borderHeight;
+                    const itemsThatWouldFit = Math.floor(availableHeight / baseTotalLineHeight);
+                    
+                    let fontSizeMultiplier = 1;
+                    let lineHeightMultiplier = 1;
+                    
+                    // If we have fewer items than would fit, increase size
+                    if (numItems < itemsThatWouldFit) {
+                        // Calculate how much to scale up
+                        const scaleFactor = Math.sqrt(itemsThatWouldFit / numItems); // Use sqrt for more gradual scaling
+                        // Cap the maximum scaling
+                        fontSizeMultiplier = Math.min(scaleFactor, 3); // Max 3x size
+                        lineHeightMultiplier = fontSizeMultiplier;
+                    }
+                    
+                    // Apply the sizing
+                    const newFontSize = baseFontSize * fontSizeMultiplier;
+                    const newLineHeight = baseLineHeight * lineHeightMultiplier;
+                    
+                    document.documentElement.style.setProperty('--base-font-size', `${newFontSize}px`);
+                    document.documentElement.style.setProperty('--base-line-height', newLineHeight);
+                }
+
+                // Apply responsive sizing after items are created
+                //applyResponsiveSizing();
+
+                // Initialize FlipClock timers - create handler functions dynamically
+                window.handleTimers = {};
+                displayEvents.forEach((event, index) => {
+                    window[`handleTimer${index}Init`] = function(tick) {
+                        console.log('handleTimer' + index + 'Init: Called for event:', event.label);
+                        if (typeof Tick === 'undefined') {
+                            console.error('handleTimer' + index + 'Init: Tick is not defined!');
+                            return;
+                        }
+                        try {
+                            const timerId = `timer-${index}`;
+                            const timerContainer = document.getElementById(timerId);
+                            const countdown = Tick.count.down(event.targetDate);
+                            
+                            // Function to check and update arrived state
+                            const checkArrivedState = function(value) {
+                                if (!value || typeof value !== 'object') {
+                                    return;
+                                }
+                                
+                                // Get the countdown values - convert to numbers explicitly
+                                // The Tick library might return strings or numbers
+                                const days = value.d !== undefined && value.d !== null ? Number(value.d) : null;
+                                const hours = value.h !== undefined && value.h !== null ? Number(value.h) : null;
+                                const minutes = value.m !== undefined && value.m !== null ? Number(value.m) : null;
+                                const seconds = value.s !== undefined && value.s !== null ? Number(value.s) : null;
+                                
+                                // Only check if we have valid values for all components (not null and not NaN)
+                                if (days === null || hours === null || minutes === null || seconds === null ||
+                                    isNaN(days) || isNaN(hours) || isNaN(minutes) || isNaN(seconds)) {
+                                    // Values not ready yet, don't show arrived
+                                    if (timerContainer) {
+                                        timerContainer.classList.remove('arrived');
+                                    }
+                                    return;
+                                }
+                                
+                                // Check if all values are exactly zero (countdown has arrived)
+                                // All must be zero for the countdown to have arrived
+                                // Also check if total time is zero or negative
+                                const totalTime = (days * 24 * 60 * 60) + (hours * 60 * 60) + (minutes * 60) + seconds;
+                                const hasArrived = (days === 0 && hours === 0 && minutes === 0 && seconds === 0) || totalTime <= 0;
+                                
+                                // Debug logging for zero values
+                                if (days === 0 && hours === 0 && minutes === 0 && seconds === 0) {
+                                    console.log('Timer ' + index + ' (' + event.label + ') has all zeros. hasArrived:', hasArrived, 'timerContainer:', timerContainer);
+                                }
+                                
+                                if (hasArrived) {
+                                    // Countdown has arrived - show "ARRIVED" text
+                                    if (timerContainer) {
+                                        timerContainer.classList.add('arrived');
+                                        console.log('Timer ' + index + ' (' + event.label + ') - Added arrived class. Container classes:', timerContainer.className);
+                                    } else {
+                                        console.error('Timer ' + index + ' (' + event.label + ') - Container not found!');
+                                    }
+                                } else {
+                                    // Countdown is still active - show digits
+                                    if (timerContainer) {
+                                        timerContainer.classList.remove('arrived');
+                                    }
+                                }
+                            };
+                            
+                            // Track if we've already marked as arrived to stop updates
+                            let hasBeenMarkedArrived = false;
+                            
+                            // Check initial state immediately
+                            if (countdown.value) {
+                                console.log('Timer ' + index + ' (' + event.label + ') initial value:', countdown.value);
+                                const initialValue = countdown.value;
+                                const days = initialValue.d !== undefined && initialValue.d !== null ? Number(initialValue.d) : null;
+                                const hours = initialValue.h !== undefined && initialValue.h !== null ? Number(initialValue.h) : null;
+                                const minutes = initialValue.m !== undefined && initialValue.m !== null ? Number(initialValue.m) : null;
+                                const seconds = initialValue.s !== undefined && initialValue.s !== null ? Number(initialValue.s) : null;
+                                
+                                const isArrived = (days !== null && hours !== null && minutes !== null && seconds !== null &&
+                                                  !isNaN(days) && !isNaN(hours) && !isNaN(minutes) && !isNaN(seconds) &&
+                                                  days === 0 && hours === 0 && minutes === 0 && seconds === 0);
+                                
+                                if (isArrived) {
+                                    hasBeenMarkedArrived = true;
+                                    if (timerContainer) {
+                                        timerContainer.classList.add('arrived');
+                                    }
+                                    if (countdown.stop) {
+                                        countdown.stop();
+                                    }
+                                } else {
+                                    checkArrivedState(countdown.value);
+                                }
+                            }
+                            
+                            // Also check if target date has already passed
+                            const targetDate = new Date(event.targetDate);
+                            const now = new Date();
+                            if (targetDate <= now) {
+                                console.log('Timer ' + index + ' (' + event.label + ') target date has passed. Target:', targetDate, 'Now:', now);
+                                hasBeenMarkedArrived = true;
+                                if (timerContainer) {
+                                    timerContainer.classList.add('arrived');
+                                }
+                                if (countdown.stop) {
+                                    countdown.stop();
+                                }
+                            }
+                            
+                            countdown.onupdate = function(value) {
+                                // If already marked as arrived, stop all updates immediately
+                                if (hasBeenMarkedArrived) {
+                                    return;
+                                }
+                                
+                                // Check if arrived - if all zeros, mark it and stop all updates
+                                const days = value.d !== undefined && value.d !== null ? Number(value.d) : null;
+                                const hours = value.h !== undefined && value.h !== null ? Number(value.h) : null;
+                                const minutes = value.m !== undefined && value.m !== null ? Number(value.m) : null;
+                                const seconds = value.s !== undefined && value.s !== null ? Number(value.s) : null;
+                                
+                                const isArrived = (days !== null && hours !== null && minutes !== null && seconds !== null &&
+                                                  !isNaN(days) && !isNaN(hours) && !isNaN(minutes) && !isNaN(seconds) &&
+                                                  days === 0 && hours === 0 && minutes === 0 && seconds === 0);
+                                
+                                // If arrived, mark it and stop all updates
+                                if (isArrived) {
+                                    hasBeenMarkedArrived = true;
+                                    if (timerContainer) {
+                                        timerContainer.classList.add('arrived');
+                                    }
+                                    // Stop the countdown from updating
+                                    if (countdown.stop) {
+                                        countdown.stop();
+                                    }
+                                    // Don't update tick value or do anything else
+                                    return;
+                                }
+                                
+                                // Only update if not arrived
+                                tick.value = value;
+                                checkArrivedState(value);
+                            };
+                            console.log('handleTimer' + index + 'Init: Timer initialized successfully');
+                        } catch (err) {
+                            console.error('handleTimer' + index + 'Init: Error initializing timer:', err);
+                        }
+                    };
+                    console.log('loadEvents: Created handler function handleTimer' + index + 'Init');
+                });
+                console.log('loadEvents: All handler functions created');
+                
+                // Manually trigger Tick initialization for dynamically added elements
+                if (typeof Tick !== 'undefined') {
+                    console.log('loadEvents: Tick is available, manually initializing...');
+                    console.log('loadEvents: Tick type:', typeof Tick);
+                    console.log('loadEvents: Tick properties:', Object.keys(Tick));
+                    if (Tick.DOM) {
+                        console.log('loadEvents: Tick.DOM properties:', Object.keys(Tick.DOM));
+                    }
+                    // Wait a bit for DOM to settle, then manually create Tick instances
+                    setTimeout(() => {
+                        console.log('loadEvents: Manually creating Tick instances...');
+                        const tickElements = document.querySelectorAll('.tick[data-did-init]');
+                        console.log('loadEvents: Found', tickElements.length, 'tick elements with data-did-init');
+                        
+                        // Use Tick.DOM.create() to properly initialize tick instances from DOM elements
+                        if (typeof Tick.DOM !== 'undefined' && typeof Tick.DOM.create === 'function') {
+                            console.log('loadEvents: Using Tick.DOM.create() to initialize tick elements...');
+                            tickElements.forEach((element, index) => {
+                                const didInit = element.getAttribute('data-did-init');
+                                console.log('loadEvents: Creating Tick instance for element', index, 'with data-did-init:', didInit);
+                                
+                                try {
+                                    // Use Tick.DOM.create() to create the tick instance from the DOM element
+                                    const tickInstance = Tick.DOM.create(element);
+                                    console.log('loadEvents: Tick instance created for element', index, ':', tickInstance);
+                                    
+                                    // Call the handler function if it exists
+                                    if (didInit && typeof window[didInit] === 'function') {
+                                        console.log('loadEvents: Calling handler', didInit, 'for element', index);
+                                        window[didInit](tickInstance);
+                                    }
+                                } catch (err) {
+                                    console.error('loadEvents: Error creating Tick instance for element', index, ':', err);
+                                }
+                            });
+                        } else {
+                            console.error('loadEvents: Tick.DOM.create() is not available!');
+                            // Fallback: try to manually initialize
+                            tickElements.forEach((element, index) => {
+                                const didInit = element.getAttribute('data-did-init');
+                                console.log('loadEvents: Fallback - trying manual initialization for element', index);
+                                
+                                if (didInit && typeof window[didInit] === 'function') {
+                                    try {
+                                        // Create a tick-like object
+                                        const tickInstance = {
+                                            value: 0,
+                                            element: element,
+                                            root: element
+                                        };
+                                        window[didInit](tickInstance);
+                                    } catch (err) {
+                                        console.error('loadEvents: Error in fallback initialization for element', index, ':', err);
+                                    }
+                                }
+                            });
+                        }
+                    }, 300);
+                }
+            } catch (error) {
+                console.error('Error loading events:', error);
+            }
+        }
+
+        document.last_modified_timestamp = 0;
+        // Get the modified timestamp of the FlipClock.html file every 60 seconds
+        function check_for_changes() {
+            var new_modified_timestamp = 0;
+            console.log('Checking for new modified timestamp');
+            fetch('FlipClock_ajax.php')
+                .then(response => response.json())
+                .then(data => {
+                    new_modified_timestamp = data.modified_timestamp;
+                    console.log('Last modified timestamp: ' + document.last_modified_timestamp + ' New modified timestamp: ' + new_modified_timestamp);
+                    if (document.last_modified_timestamp && document.last_modified_timestamp !== new_modified_timestamp) {
+                        console.log('New modified timestamp is different from the last one, refreshing the page');
+                        window.location.reload();
+                    }
+                    document.last_modified_timestamp = new_modified_timestamp;
+                    console.log('New modified timestamp: ' + new_modified_timestamp);
+                });
+
+        }
+        setInterval(() => {
+            check_for_changes();
+        }, 60000);
+        check_for_changes();
+
+        // Wait for flip.min.js to load before initializing
+        function initializePage() {
+            console.log('initializePage: Starting initialization...');
+            console.log('initializePage: Tick available?', typeof Tick !== 'undefined');
+            
+            if (typeof Tick === 'undefined') {
+                console.error('initializePage: Tick library not loaded! Waiting...');
+                setTimeout(initializePage, 100);
+                return;
+            }
+            
+            console.log('initializePage: Tick library loaded, loading events...');
+            loadEvents();
+        }
+
+        // Start initialization when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('DOMContentLoaded: DOM ready, waiting for flip.min.js...');
+            });
+        } else {
+            console.log('Script: DOM already ready, waiting for flip.min.js...');
+        }
+
+        // Function to show edit form
+        async function showEditForm() {
+            try {
+                // Load current events
+                const response = await fetch('FlipClockEvents.json');
+                const events = await response.json();
+                
+                // Create form container
+                const formContainer = document.createElement('div');
+                formContainer.style.cssText = 'padding: 40px; max-width: 1200px; margin: 0 auto;';
+                
+                const title = document.createElement('h1');
+                title.textContent = 'Edit Events';
+                title.style.cssText = 'color: #00ff00; margin-bottom: 30px; font-family: sans-serif;';
+                formContainer.appendChild(title);
+                
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'FlipClock.php';
+                form.style.cssText = 'font-family: sans-serif;';
+                
+                // Password field
+                const passwordDiv = document.createElement('div');
+                passwordDiv.style.cssText = 'margin-bottom: 30px; border: 1px solid #333; padding: 20px; background: #111;';
+                const passwordLabel = document.createElement('label');
+                passwordLabel.textContent = 'Password:';
+                passwordLabel.style.cssText = 'display: block; color: #fff; margin-bottom: 5px;';
+                const passwordInput = document.createElement('input');
+                passwordInput.type = 'password';
+                passwordInput.name = 'password';
+                passwordInput.required = true;
+                passwordInput.style.cssText = 'width: 100%; padding: 8px; background: #000; color: #fff; border: 1px solid #333; font-family: sans-serif; font-size: 16px;';
+                passwordDiv.appendChild(passwordLabel);
+                passwordDiv.appendChild(passwordInput);
+                form.appendChild(passwordDiv);
+                
+                const eventsContainer = document.createElement('div');
+                eventsContainer.id = 'eventsContainer';
+                form.appendChild(eventsContainer);
+                
+                // Function to add event row
+                let eventCount = events.length;
+                window.addEventRow = function(index = null) {
+                    const container = document.getElementById('eventsContainer');
+                    if (!container) {
+                        console.error('eventsContainer not found');
+                        return;
+                    }
+                    const eventIndex = index !== null ? index : eventCount++;
+                    
+                    const eventDiv = document.createElement('div');
+                    eventDiv.style.cssText = 'border: 1px solid #333; padding: 20px; margin-bottom: 15px; background: #111;';
+                    
+                    // Label field
+                    const labelDiv = document.createElement('div');
+                    labelDiv.style.cssText = 'margin-bottom: 15px;';
+                    const labelLabel = document.createElement('label');
+                    labelLabel.textContent = 'Label:';
+                    labelLabel.style.cssText = 'display: block; color: #fff; margin-bottom: 5px;';
+                    const labelInput = document.createElement('input');
+                    labelInput.type = 'text';
+                    labelInput.name = `events[${eventIndex}][label]`;
+                    labelInput.required = true;
+                    labelInput.style.cssText = 'width: 100%; padding: 8px; background: #000; color: #fff; border: 1px solid #333; font-family: sans-serif; font-size: 16px;';
+                    labelDiv.appendChild(labelLabel);
+                    labelDiv.appendChild(labelInput);
+                    eventDiv.appendChild(labelDiv);
+                    
+                    // Target Date field
+                    const dateDiv = document.createElement('div');
+                    dateDiv.style.cssText = 'margin-bottom: 15px;';
+                    const dateLabel = document.createElement('label');
+                    dateLabel.textContent = 'Target Date (YYYY-MM-DDTHH:mm:ss-TZ:00):';
+                    dateLabel.style.cssText = 'display: block; color: #fff; margin-bottom: 5px;';
+                    const dateInput = document.createElement('input');
+                    dateInput.type = 'text';
+                    dateInput.name = `events[${eventIndex}][targetDate]`;
+                    dateInput.required = true;
+                    dateInput.placeholder = '2025-11-08T00:00:00-05:00';
+                    dateInput.style.cssText = 'width: 100%; padding: 8px; background: #000; color: #fff; border: 1px solid #333; font-family: sans-serif; font-size: 16px;';
+                    dateDiv.appendChild(dateLabel);
+                    dateDiv.appendChild(dateInput);
+                    eventDiv.appendChild(dateDiv);
+                    
+                    // Pinned checkbox
+                    const pinnedDiv = document.createElement('div');
+                    pinnedDiv.style.cssText = 'margin-bottom: 15px;';
+                    const pinnedLabel = document.createElement('label');
+                    pinnedLabel.style.cssText = 'display: flex; align-items: center; color: #fff;';
+                    const pinnedInput = document.createElement('input');
+                    pinnedInput.type = 'checkbox';
+                    pinnedInput.name = `events[${eventIndex}][pinned]`;
+                    pinnedInput.value = '1';
+                    pinnedInput.style.cssText = 'margin-right: 8px;';
+                    pinnedLabel.appendChild(pinnedInput);
+                    pinnedLabel.appendChild(document.createTextNode('Pinned'));
+                    pinnedDiv.appendChild(pinnedLabel);
+                    eventDiv.appendChild(pinnedDiv);
+                    
+                    // Remove button
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.textContent = 'Remove';
+                    removeBtn.style.cssText = 'padding: 5px 15px; background: #ff0000; color: #fff; border: none; cursor: pointer; font-family: sans-serif; font-size: 14px;';
+                    removeBtn.onclick = function() { eventDiv.remove(); };
+                    eventDiv.appendChild(removeBtn);
+                    
+                    container.appendChild(eventDiv);
+                };
+                
+                // Add buttons
+                const buttonsDiv = document.createElement('div');
+                buttonsDiv.style.cssText = 'margin-top: 30px;';
+                
+                const addBtn = document.createElement('button');
+                addBtn.type = 'button';
+                addBtn.textContent = 'Add Event';
+                addBtn.style.cssText = 'padding: 10px 20px; margin-right: 10px; background: #00ff00; color: #000; border: none; cursor: pointer; font-family: sans-serif; font-size: 18px;';
+                addBtn.onclick = function() { addEventRow(); };
+                buttonsDiv.appendChild(addBtn);
+                
+                const saveBtn = document.createElement('button');
+                saveBtn.type = 'submit';
+                saveBtn.textContent = 'Save Events';
+                saveBtn.style.cssText = 'padding: 10px 20px; margin-right: 10px; background: #00ff00; color: #000; border: none; cursor: pointer; font-family: sans-serif; font-size: 18px;';
+                buttonsDiv.appendChild(saveBtn);
+                
+                const cancelBtn = document.createElement('button');
+                cancelBtn.type = 'button';
+                cancelBtn.textContent = 'Cancel';
+                cancelBtn.style.cssText = 'padding: 10px 20px; background: #666; color: #fff; border: none; cursor: pointer; font-family: sans-serif; font-size: 18px;';
+                cancelBtn.onclick = function() { window.location.reload(); };
+                buttonsDiv.appendChild(cancelBtn);
+                
+                form.appendChild(buttonsDiv);
+                formContainer.appendChild(form);
+                
+                // Replace body content FIRST, then populate
+                document.body.innerHTML = '';
+                document.body.appendChild(formContainer);
+                
+                // Enable scrolling for the form
+                document.body.style.overflow = 'auto';
+                document.body.style.height = 'auto';
+                document.body.style.minHeight = '100vh';
+                
+                // Now populate form with existing events (after DOM is ready)
+                events.forEach((event, index) => {
+                    addEventRow(index);
+                    const container = document.getElementById('eventsContainer');
+                    const lastDiv = container.lastElementChild;
+                    lastDiv.querySelector(`input[name="events[${index}][label]"]`).value = event.label || '';
+                    lastDiv.querySelector(`input[name="events[${index}][targetDate]"]`).value = event.targetDate || '';
+                    if (event.pinned) {
+                        lastDiv.querySelector(`input[name="events[${index}][pinned]"]`).checked = true;
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading events for edit form:', error);
+                alert('Error loading events. Please refresh the page.');
+            }
+        }
+
+        // Add event listeners for keypress and mouse click
+        let editModeTriggered = false;
+        
+        function triggerEditMode() {
+            if (!editModeTriggered) {
+                editModeTriggered = true;
+                showEditForm();
+            }
+        }
+
+        // Listen for any keypress
+        document.addEventListener('keydown', triggerEditMode);
+        
+        // Listen for any mouse click
+        document.addEventListener('click', triggerEditMode);
+    </script>
+    <script src="flip.min.js" onload="console.log('flip.min.js: Script loaded'); initializePage();"></script>
+</body>
+</html>

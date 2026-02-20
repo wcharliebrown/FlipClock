@@ -1,0 +1,13 @@
+services:
+  flipclock:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount project dir so edits are reflected without a rebuild.
+      # FlipClockEvents.json is also written here by FlipClock.php.
+      - .:/var/www/html
+    environment:
+      # Change this to set the admin password used by FlipClock.php
+      FLIPCLOCK_PASSWORD: test123
+    restart: unless-stopped
