@@ -1,5 +1,5 @@
 <?php
-// Handle POST data and save to FlipClock10Events.json
+// Handle POST data and save to FlipClockEvents.json
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['events'])) {
     // Verify password before processing
     if (!isset($_POST['password'])) {
@@ -44,11 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['events'])) {
     }
     
     // Save to JSON file
-    $jsonFile = __DIR__ . '/FlipClock10Events.json';
+    $jsonFile = __DIR__ . '/FlipClockEvents.json';
     $jsonData = json_encode($events, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     
     if (file_put_contents($jsonFile, $jsonData) !== false) {
-        // Redirect back to FlipClock10.html
+        // Redirect back to FlipClock.html
         header('Location: FlipClock.html');
         exit;
     } else {
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['events'])) {
         exit;
     }
 } else {
-    // If not POST request, redirect to FlipClock10.html
+    // If not POST request, redirect to FlipClock.html
     header('Location: FlipClock.html');
     exit;
 }
